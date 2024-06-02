@@ -48,6 +48,13 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         /var/tmp/* \
         /var/lib/apt/lists/*
 
+# Pre-main stage for AdGuard Home to install required packages
+FROM debian:bullseye as pre-main
+
+RUN apt-get update && \
+    apt-get install -y bash nano curl wget stubby libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 # Main stage for AdGuard Home
 FROM ${FRM}:${TAG}
 ARG FRM
@@ -60,14 +67,8 @@ COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
-#RUN apt update && \
-#    apt install -y bash nano curl wget stubby libssl-dev
-
-# Update package lists and install necessary packages
-RUN apt-get update && \
-    apt-get install -y bash nano curl wget stubby libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
-
+# Copying scripts from pre-main stage
+COPY --from=pre-main / /
 
 ADD scripts /temp
 
