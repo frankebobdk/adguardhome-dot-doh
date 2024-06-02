@@ -1,4 +1,4 @@
-ARG FRM='pihole/pihole'
+ARG FRM='adguard/adguardhome'
 ARG TAG='latest'
 
 FROM debian:bullseye as unbound
