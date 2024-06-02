@@ -16,8 +16,8 @@ jobs:
         id: check
         uses: lucacome/docker-image-update-checker@v1
         with:
-          base-image: pihole/pihole:latest
-          image: devzwf/pihole-dot-doh:latest
+          base-image: adguard/adguardhome:latest
+          image: frankebobdk/AdGuardHome-dot-doh:latest
         if: ${{ github.event_name == 'schedule' }}
         env:
           DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
@@ -46,17 +46,16 @@ jobs:
         uses: pozetroninc/github-action-get-latest-release@v0.7.0
         id: latest-tag
         with:
-          repository: pi-hole/docker-pi-hole
+          repository: adguard/adguardhome
 
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: .
           platforms: |
-            linux/arm64
             linux/amd64
           push: true
           provenance: false
           tags: |
-            frankebob/pihole-dot-doh:latest
-            frankebob/pihole-dot-doh:${{ steps.latest-tag.outputs.release }}
+            frankebob/AdGuardHome-dot-doh:latest
+            frankebob/AdGuardHome-dot-doh:${{ steps.latest-tag.outputs.release }}
