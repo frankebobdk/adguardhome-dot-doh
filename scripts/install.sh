@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# clean stubby config
+# Clean stubby config
 mkdir -p /etc/stubby \
     && rm -f /etc/stubby/stubby.yml
 
-# Let Download and install Cloudflare depending on the architecture
-set -eux; 
+# Download and install Cloudflare depending on the architecture
+set -eux
 ARCH="$(dpkg --print-architecture | awk -F'-' '{print $NF}')"
 case "$ARCH" in
     aarch64|arm64)
@@ -22,67 +22,62 @@ case "$ARCH" in
         ;;
     *)
         echo "Unsupported architecture: $ARCH"
-        exit 1;
+        exit 1
         ;;
-esac;
+esac
 
-# install cloudflared
+# Install cloudflared
 cd /tmp \
 && wget https://github.com/cloudflare/cloudflared/releases/latest/download/${CF_PACKAGE} \
 && apt install -y ./${CF_PACKAGE} \
 && rm -f ./${CF_PACKAGE} \
 && echo "$(date "+%d.%m.%Y %T") $(cloudflared -V) installed for ${ARCH}" >> /build_date.info
 
-
+# Add cloudflared user
 useradd -s /usr/sbin/nologin -r -M cloudflared \
     && chown cloudflared:cloudflared /usr/local/bin/cloudflared
-    
-# clean cloudflared config
+
+# Clean cloudflared config
 mkdir -p /etc/cloudflared \
     && rm -f /etc/cloudflared/config.yml
-    
-# add unbound version to build.info
+
+# Add unbound version to build.info
 echo "$(date "+%d.%m.%Y %T") Unbound $(unbound -V | head -1) installed for ${ARCH}" >> /build_date.info    
 
-# clean up
+# Clean up
 apt -y autoremove \
     && apt -y autoclean \
     && apt -y clean \
     && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
-# Creating pihole-dot-doh service
-mkdir -p /etc/services.d/pihole-dot-doh
+# Creating AdGuard Home service directory
+mkdir -p /etc/services.d/adguardhome
 
 # run file
-echo '#!/usr/bin/env bash' | tee /etc/services.d/pihole-dot-doh/run
-# Copy config file if not exists
-echo 'cp -n /temp/stubby.yml /config/' | tee -a /etc/services.d/pihole-dot-doh/run
-echo 'cp -n /temp/cloudflared.yml /config/' | tee -a /etc/services.d/pihole-dot-doh/run
-echo 'cp -n /temp/unbound.conf /config/' | tee -a /etc/services.d/pihole-dot-doh/run
-echo 'cp -n /temp/forward-records.conf /config/' | tee -a /etc/services.d/pihole-dot-doh/run
-# run unbound in background
-echo 's6-echo "Starting unbound"' | tee -a /etc/services.d/pihole-dot-doh/run
-echo '/usr/local/sbin/unbound -p -c /config/unbound.conf' | tee -a /etc/services.d/pihole-dot-doh/run
-# run stubby in background
-echo 's6-echo "Starting stubby"' | tee -a /etc/services.d/pihole-dot-doh/run
-echo 'stubby -g -C /config/stubby.yml' | tee -a /etc/services.d/pihole-dot-doh/run
-# run cloudflared in foreground
-echo 's6-echo "Starting cloudflared"' | tee -a /etc/services.d/pihole-dot-doh/run
-echo '/usr/local/bin/cloudflared --config /config/cloudflared.yml' | tee -a /etc/services.d/pihole-dot-doh/run
-chmod 755 /etc/services.d/pihole-dot-doh/run
+echo '#!/usr/bin/env bash' | tee /etc/services.d/adguardhome/run
+# Run unbound in the background
+echo 's6-echo "Starting unbound"' | tee -a /etc/services.d/adguardhome/run
+echo '/usr/local/sbin/unbound -p -c /config/unbound.conf' | tee -a /etc/services.d/adguardhome/run
+# Run stubby in the background
+echo 's6-echo "Starting stubby"' | tee -a /etc/services.d/adguardhome/run
+echo 'stubby -g -C /config/stubby.yml' | tee -a /etc/services.d/adguardhome/run
+# Run AdGuard Home in the foreground
+echo 's6-echo "Starting AdGuard Home"' | tee -a /etc/services.d/adguardhome/run
+echo '/opt/adguardhome/AdGuardHome --config /config/AdGuardHome.yaml' | tee -a /etc/services.d/adguardhome/run
+chmod 755 /etc/services.d/adguardhome/run
 
 # finish file
-echo '#!/usr/bin/env bash' | tee /etc/services.d/pihole-dot-doh/finish
-echo 's6-echo "Stopping stubby"' | tee -a /etc/services.d/pihole-dot-doh/finish
-echo 'killall -9 stubby' | tee -a /etc/services.d/pihole-dot-doh/finish
-echo 's6-echo "Stopping cloudflared"' | tee -a /etc/services.d/pihole-dot-doh/finish
-echo 'killall -9 cloudflared' | tee -a /etc/services.d/pihole-dot-doh/finish
-echo 's6-echo "Stopping unbound"' | tee -a /etc/services.d/pihole-dot-doh/finish
-echo 'killall -9 unbound' | tee -a /etc/services.d/pihole-dot-doh/finish
-chmod 755 /etc/services.d/pihole-dot-doh/finish
+echo '#!/usr/bin/env bash' | tee /etc/services.d/adguardhome/finish
+echo 's6-echo "Stopping stubby"' | tee -a /etc/services.d/adguardhome/finish
+echo 'killall -9 stubby' | tee -a /etc/services.d/adguardhome/finish
+echo 's6-echo "Stopping cloudflared"' | tee -a /etc/services.d/adguardhome/finish
+echo 'killall -9 cloudflared' | tee -a /etc/services.d/adguardhome/finish
+echo 's6-echo "Stopping unbound"' | tee -a /etc/services.d/adguardhome/finish
+echo 'killall -9 unbound' | tee -a /etc/services.d/adguardhome/finish
+chmod 755 /etc/services.d/adguardhome/finish
 
-# creating oneshot for unbound
+# Creating oneshot for unbound
 mkdir -p /etc/cont-init.d/
-# run file
+# Run file
 cp -n /temp/unbound.sh /etc/cont-init.d/unbound
 chmod 755 /etc/cont-init.d/unbound
