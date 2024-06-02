@@ -48,8 +48,11 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-# Intermediate stage to setup Unbound files and directories
-FROM debian:bullseye as setup-unbound
+# Main stage for AdGuard Home
+FROM ${FRM}:${TAG}
+ARG FRM
+ARG TAG
+ARG TARGETPLATFORM
 
 RUN mkdir -p /usr/local/etc/unbound
 
@@ -57,12 +60,8 @@ COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
-# Install necessary packages and setup AdGuard Home
-FROM setup-unbound as setup-adguard
-
-RUN apt-get update && \
-    apt-get install -y bash nano curl wget stubby libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt update && \
+    apt install -y bash nano curl wget stubby libssl-dev
 
 ADD scripts /temp
 
@@ -70,12 +69,6 @@ RUN groupadd unbound \
     && useradd -g unbound unbound \
     && /bin/bash /temp/install.sh \
     && rm -rf /temp/install.sh 
-
-# Main stage for AdGuard Home
-FROM ${FRM}:${TAG}
-ARG FRM
-ARG TAG
-ARG TARGETPLATFORM
 
 VOLUME ["/config"]
 
