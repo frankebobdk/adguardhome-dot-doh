@@ -48,24 +48,8 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-# Pre-main stage for AdGuard Home to install required packages
-FROM debian:bullseye as pre-main
-
-RUN apt-get update && \
-    apt-get install -y bash nano curl wget stubby libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
-
-# Create a directory to store copied files
-RUN mkdir -p /pre-main-files
-
-# Copy the required files to the created directory
-COPY --from=pre-main / /pre-main-files/
-
-# Main stage for AdGuard Home
-FROM ${FRM}:${TAG}
-ARG FRM
-ARG TAG
-ARG TARGETPLATFORM
+# Intermediate stage to setup Unbound files and directories
+FROM debian:bullseye as setup-unbound
 
 RUN mkdir -p /usr/local/etc/unbound
 
@@ -73,10 +57,25 @@ COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
-# Copy scripts from the pre-main stage directory
-COPY --from=pre-main /pre-main-files /
+# Install necessary packages and setup AdGuard Home
+FROM setup-unbound as setup-adguard
 
-# Add additional commands as needed
+RUN apt-get update && \
+    apt-get install -y bash nano curl wget stubby libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+ADD scripts /temp
+
+RUN groupadd unbound \
+    && useradd -g unbound unbound \
+    && /bin/bash /temp/install.sh \
+    && rm -rf /temp/install.sh 
+
+# Main stage for AdGuard Home
+FROM ${FRM}:${TAG}
+ARG FRM
+ARG TAG
+ARG TARGETPLATFORM
 
 VOLUME ["/config"]
 
