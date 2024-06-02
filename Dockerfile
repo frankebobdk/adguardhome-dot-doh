@@ -55,6 +55,12 @@ RUN apt-get update && \
     apt-get install -y bash nano curl wget stubby libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
+# Create a directory to store copied files
+RUN mkdir -p /pre-main-files
+
+# Copy the required files to the created directory
+COPY --from=pre-main / /pre-main-files/
+
 # Main stage for AdGuard Home
 FROM ${FRM}:${TAG}
 ARG FRM
@@ -67,15 +73,10 @@ COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
-# Copying scripts from pre-main stage
-COPY --from=pre-main / /
+# Copy scripts from the pre-main stage directory
+COPY --from=pre-main /pre-main-files /
 
-ADD scripts /temp
-
-RUN groupadd unbound \
-    && useradd -g unbound unbound \
-    && /bin/bash /temp/install.sh \
-    && rm -rf /temp/install.sh 
+# Add additional commands as needed
 
 VOLUME ["/config"]
 
