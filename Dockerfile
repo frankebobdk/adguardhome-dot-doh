@@ -60,8 +60,14 @@ COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
-RUN apt update && \
-    apt install -y bash nano curl wget stubby libssl-dev
+#RUN apt update && \
+#    apt install -y bash nano curl wget stubby libssl-dev
+
+# Update package lists and install necessary packages
+RUN apt-get update && \
+    apt-get install -y bash nano curl wget stubby libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 
 ADD scripts /temp
 
