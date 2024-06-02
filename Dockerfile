@@ -1,6 +1,8 @@
+# Define the base image and tag for AdGuard Home
 ARG FRM='adguard/adguardhome'
 ARG TAG='latest'
 
+# Stage for building Unbound (this remains unchanged)
 FROM debian:bullseye as unbound
 
 ARG UNBOUND_VERSION=1.20.0
@@ -46,6 +48,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         /var/tmp/* \
         /var/lib/apt/lists/*
 
+# Main stage for AdGuard Home
 FROM ${FRM}:${TAG}
 ARG FRM
 ARG TAG
