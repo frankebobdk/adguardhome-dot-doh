@@ -17,7 +17,7 @@ jobs:
         uses: lucacome/docker-image-update-checker@v1
         with:
           base-image: adguard/adguardhome:latest
-          image: frankebobdk/AdGuardHome-dot-doh:latest
+          image: frankebobdk/adguardHome-dot-doh:latest
         if: ${{ github.event_name == 'schedule' }}
         env:
           DEBUG: ${{ secrets.ACTIONS_STEP_DEBUG }}
@@ -57,5 +57,5 @@ jobs:
           push: true
           provenance: false
           tags: |
-            frankebob/AdGuardHome-dot-doh:latest
-            frankebob/AdGuardHome-dot-doh:${{ steps.latest-tag.outputs.release }}
+            frankebob/adguardhome-dot-doh:latest
+            frankebob/adguardhome-dot-doh:${{ steps.latest-tag.outputs.release }}
