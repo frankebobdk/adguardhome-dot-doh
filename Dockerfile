@@ -89,7 +89,7 @@ RUN mkdir -p /usr/local/etc/unbound && \
 
 # Install necessary packages for user and group creation, and other utilities
 RUN apk update && \
-    apk add shadow bash nano curl wget openssl
+    apk add shadow bash nano curl wget openssl dpkg
 
 ADD scripts /temp
 
