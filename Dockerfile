@@ -1,8 +1,4 @@
-# Define the base image and tag for AdGuard Home
-ARG FRM='adguard/adguardhome'
-ARG TAG='latest'
-
-# Stage for building Unbound (this remains unchanged)
+# Stage 1: Build Unbound
 FROM debian:bullseye as unbound
 
 ARG UNBOUND_VERSION=1.20.0
@@ -48,39 +44,58 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-# Main stage for AdGuard Home
-FROM ${FRM}:${TAG}
+# Stage 2: Build Stubby
+FROM debian:bullseye as stubby
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get -y install \
+      autoconf \
+      build-essential \
+      ca-certificates \
+      cmake \
+      libgetdns-dev \
+      libidn2-0-dev \
+      libssl-dev \
+      libunbound-dev \
+      libyaml-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/
+
+WORKDIR /usr/src/stubby
+RUN git clone https://github.com/getdnsapi/stubby.git . && \
+    git checkout tags/v0.4.0 && \
+    cmake . && \
+    make
+
+# Stage 3: Main stage for AdGuard Home
+FROM adguard/adguardhome:latest
 ARG FRM
 ARG TAG
 ARG TARGETPLATFORM
 
-RUN mkdir -p /usr/local/etc/unbound
-
+# Copy Unbound binaries and configuration
 COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
+# Copy Stubby binaries and configuration
+COPY --from=stubby /usr/src/stubby/stubby /usr/local/bin/
+COPY --from=stubby /usr/src/stubby/stubby.yml.example /usr/local/etc/stubby/stubby.yml
+
+RUN mkdir -p /usr/local/etc/unbound && \
+    mkdir -p /usr/local/etc/stubby
+
 # Use apk for Alpine-based images
 RUN apk update && \
-    apk add bash nano curl wget openssl && \
-    apk add --no-cache build-base git autoconf automake libtool && \
-    cd /tmp && \
-    git clone https://github.com/getdnsapi/stubby && \
-    cd stubby && \
-    git checkout tags/v0.4.0 && \
-    ./configure && \
-    make && \
-    make install && \
-    cd / && \
-    rm -rf /tmp/stubby && \
-    apk del build-base git autoconf automake libtool
+    apk add bash nano curl wget openssl
 
 ADD scripts /temp
 
-RUN groupadd unbound \
-    && useradd -g unbound unbound \
-    && /bin/bash /temp/install.sh \
-    && rm -rf /temp/install.sh 
+RUN groupadd unbound && \
+    useradd -g unbound unbound && \
+    /bin/bash /temp/install.sh && \
+    rm -rf /temp/install.sh 
 
 VOLUME ["/config"]
 
