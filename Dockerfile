@@ -60,8 +60,9 @@ COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
 COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
 COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
-RUN apt update && \
-    apt install -y bash nano curl wget stubby libssl-dev
+# Use apk for Alpine-based images
+RUN apk update && \
+    apk add bash nano curl wget stubby openssl
 
 ADD scripts /temp
 
