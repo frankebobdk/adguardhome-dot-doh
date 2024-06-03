@@ -68,7 +68,6 @@ RUN apk update && \
     git clone https://github.com/getdnsapi/stubby && \
     cd stubby && \
     git checkout tags/v0.4.0 && \
-    ./autogen.sh && \
     ./configure && \
     make && \
     make install && \
