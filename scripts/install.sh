@@ -4,9 +4,17 @@
 mkdir -p /etc/stubby \
     && rm -f /etc/stubby/stubby.yml
 
-# Download and install Cloudflare depending on the architecture
-set -eux
-ARCH="$(dpkg --print-architecture | awk -F'-' '{print $NF}')"
+# Detect architecture
+if command -v dpkg > /dev/null; then
+  ARCH="$(dpkg --print-architecture | awk -F'-' '{print $NF}')"
+elif command -v apk > /dev/null; then
+  ARCH="$(apk --print-arch)"
+else
+  echo "Unsupported architecture"
+  exit 1
+fi
+
+# Determine Cloudflare package based on architecture
 case "$ARCH" in
     aarch64|arm64)
         CF_PACKAGE="cloudflared-linux-arm64.deb"
@@ -26,10 +34,11 @@ case "$ARCH" in
         ;;
 esac
 
-# Install cloudflared
+# Install Cloudflare
 cd /tmp \
 && wget https://github.com/cloudflare/cloudflared/releases/latest/download/${CF_PACKAGE} \
-&& apt install -y ./${CF_PACKAGE} \
+&& apk add --no-cache dpkg \
+&& dpkg -i ./${CF_PACKAGE} \
 && rm -f ./${CF_PACKAGE} \
 && echo "$(date "+%d.%m.%Y %T") $(cloudflared -V) installed for ${ARCH}" >> /build_date.info
 
@@ -45,12 +54,12 @@ mkdir -p /etc/cloudflared \
 echo "$(date "+%d.%m.%Y %T") Unbound $(unbound -V | head -1) installed for ${ARCH}" >> /build_date.info    
 
 # Clean up
-apt -y autoremove \
-    && apt -y autoclean \
-    && apt -y clean \
+apk -y autoremove \
+    && apk -y autoclean \
+    && apk -y clean \
     && rm -rf /tmp/* /var/tmp/* /var/lib/apt/lists/*
 
-# Creating AdGuard Home service directory
+# Create AdGuard Home service directory
 mkdir -p /etc/services.d/adguardhome
 
 # run file
@@ -76,7 +85,7 @@ echo 's6-echo "Stopping unbound"' | tee -a /etc/services.d/adguardhome/finish
 echo 'killall -9 unbound' | tee -a /etc/services.d/adguardhome/finish
 chmod 755 /etc/services.d/adguardhome/finish
 
-# Creating oneshot for unbound
+# Create oneshot for unbound
 mkdir -p /etc/cont-init.d/
 # Run file
 cp -n /temp/unbound.sh /etc/cont-init.d/unbound
