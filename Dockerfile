@@ -62,7 +62,19 @@ COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
 
 # Use apk for Alpine-based images
 RUN apk update && \
-    apk add bash nano curl wget stubby openssl
+    apk add bash nano curl wget openssl && \
+    apk add --no-cache build-base git autoconf automake libtool && \
+    cd /tmp && \
+    git clone https://github.com/getdnsapi/stubby && \
+    cd stubby && \
+    git checkout tags/v0.4.0 && \
+    ./autogen.sh && \
+    ./configure && \
+    make && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/stubby && \
+    apk del build-base git autoconf automake libtool
 
 ADD scripts /temp
 
