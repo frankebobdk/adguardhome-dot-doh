@@ -87,9 +87,9 @@ COPY --from=stubby /usr/src/stubby/stubby.yml.example /usr/local/etc/stubby/stub
 RUN mkdir -p /usr/local/etc/unbound && \
     mkdir -p /usr/local/etc/stubby
 
-# Use apk for Alpine-based images
+# Install necessary packages for user and group creation, and other utilities
 RUN apk update && \
-    apk add bash nano curl wget openssl
+    apk add shadow bash nano curl wget openssl
 
 ADD scripts /temp
 
