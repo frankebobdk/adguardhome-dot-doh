@@ -54,6 +54,7 @@ RUN apt-get update && \
       build-essential \
       ca-certificates \
       cmake \
+      git \
       libgetdns-dev \
       libidn2-0-dev \
       libssl-dev \
