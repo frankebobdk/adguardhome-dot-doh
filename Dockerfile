@@ -1,157 +1,102 @@
-# Stage 1: Build Unbound
-FROM debian:bullseye as unbound
+FROM alpine AS builder_stubby
 
-ARG UNBOUND_VERSION=1.20.0
-ARG UNBOUND_SHA256=56b4ceed33639522000fd96775576ddf8782bb3617610715d7f1e777c5ec1dbf
-ARG UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.20.0.tar.gz
+RUN apk add --update alpine-sdk libidn2-dev unbound-dev cmake openssl-dev libev-dev libuv-dev check-dev yaml-dev \
+        && git clone https://github.com/getdnsapi/getdns.git \
+        && cd getdns && git checkout master && git submodule update --init \
+        && mkdir build && cd build \
+        && cmake -DBUILD_STUBBY=ON .. \
+        && make && make install
 
-WORKDIR /tmp/src
 
-RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make libssl-dev" && \
-    set -x && \
-    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-      $build_deps \
-      bsdmainutils \
-      ca-certificates \
-      ldnsutils \
-      libevent-2.1-7 \
-      libexpat1 \
-      libprotobuf-c-dev \
-      protobuf-c-compiler && \
-    curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz && \
-    echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - && \
-    tar xzf unbound.tar.gz && \
-    rm -f unbound.tar.gz && \
-    cd unbound-${UNBOUND_VERSION} && \
-    groupadd unbound && \
-    useradd -g unbound -s /dev/null -d /etc unbound && \
-    ./configure \
-        --disable-dependency-tracking \
-        --with-pthreads \
-        --with-username=unbound \
-        --with-libevent \
-        --with-libnghttp2 \
-        --enable-dnstap \
-        --enable-tfo-server \
-        --enable-tfo-client \
-        --enable-event-api \
-        --enable-subnet && \
-    make -j$(nproc) install && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
-    rm -rf \
-        /tmp/* \
-        /var/tmp/* \
-        /var/lib/apt/lists/*
+FROM adguard/adguardhome as base
 
-# Stage 2: Build Stubby
-FROM debian:bullseye as stubby
+MAINTAINER "frankebobdk"
+LABEL name="frankebobdk/adguardhome-dot-doh"
 
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && \
-    apt-get -y install \
-      autoconf \
-      build-essential \
-      ca-certificates \
-      cmake \
-      git \
-      libgetdns-dev \
-      libidn2-0-dev \
-      libssl-dev \
-      libunbound-dev \
-      libyaml-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/
 
-WORKDIR /usr/src/stubby
-RUN git clone https://github.com/getdnsapi/stubby.git . && \
-    git checkout tags/v0.4.0 && \
-    cmake . && \
-    make
+# Raspberry Pi 32 bit = armhf
+# Raspberry Pi 64 bit = arm64
+# PC 64 bit = amd64
+# PC 32 bit = i386
 
-# Stage 3: Main stage for AdGuard Home
-FROM alpine:3.18
+# Install dependencies for building
+RUN apk update && apk add --no-cache \
+    dpkg \
+    libidn2 \
+    libcrypto1.1 \
+    libssl1.1 \
+    openssl \
+    yaml \
+    unbound
 
-ARG BUILD_DATE
-ARG VERSION
-ARG VCS_REF
+# Get root.hints file for Unbound
+RUN wget -O root.hints https://www.internic.net/domain/named.root \
+    && mkdir -p /var/lib/unbound/ \
+    && mv root.hints /var/lib/unbound/
 
-LABEL\
-    maintainer="AdGuard Team <devteam@adguard.com>" \
-    org.opencontainers.image.authors="AdGuard Team <devteam@adguard.com>" \
-    org.opencontainers.image.created=$BUILD_DATE \
-    org.opencontainers.image.description="Network-wide ads & trackers blocking DNS server" \
-    org.opencontainers.image.documentation="https://github.com/AdguardTeam/AdGuardHome/wiki/" \
-    org.opencontainers.image.licenses="GPL-3.0" \
-    org.opencontainers.image.revision=$VCS_REF \
-    org.opencontainers.image.source="https://github.com/AdguardTeam/AdGuardHome" \
-    org.opencontainers.image.title="AdGuard Home" \
-    org.opencontainers.image.url="https://adguard.com/en/adguard-home/overview.html" \
-    org.opencontainers.image.vendor="AdGuard" \
-    org.opencontainers.image.version=$VERSION
+# Set up the Unbound conf file
+COPY scripts/unbound.conf /etc/unbound/unbound.conf
 
-# Update certificates.
-RUN apk --no-cache add ca-certificates libcap tzdata && \
-    mkdir -p /opt/adguardhome/conf /opt/adguardhome/work && \
-    chown -R nobody: /opt/adguardhome
+# Download and install Cloudflare depend on the architecture
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture | awk -F'-' '{print $NF}')"; \
+    case "$ARCH" in \
+        aarch64|arm64) \
+            CLOUDFLARE_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64"; \
+            ;; \
+        armhf|arm) \
+            CLOUDFLARE_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm"; \
+            ;; \
+        amd64|x86_64) \
+            CLOUDFLARE_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"; \
+            ;; \
+        *) \
+            echo "Unsupported architecture: $ARCH"; \
+            exit 1; \
+            ;; \
+    esac; \
+    wget -qO /usr/local/bin/cloudflared "${CLOUDFLARE_URL}"; \
+    chmod +x /usr/local/bin/cloudflared; \
+    cloudflared --version;
 
-ARG DIST_DIR
-ARG TARGETARCH
-ARG TARGETOS
-ARG TARGETVARIANT
+# Add user cloudflared and set ownership
+RUN addgroup -S cloudflared \
+    && adduser -S cloudflared -G cloudflared -s /usr/sbin/nologin -D -H \
+    && chown cloudflared:cloudflared /usr/local/bin/cloudflared
 
-# Ensure the DIST_DIR is set correctly to point to where the AdGuardHome binary is located
-COPY --chown=nobody:nogroup \
-    ${DIST_DIR}/AdGuardHome_${TARGETOS}_${TARGETARCH}${TARGETVARIANT} \
-    /opt/adguardhome/AdGuardHome
+# Install Stubby from previous build
+RUN mkdir -p /usr/local/var/run
+COPY --from=builder_stubby /usr/local/lib/libgetdns.so.10.2.0 /usr/local/lib/libgetdns.so
+COPY --from=builder_stubby /usr/local/bin/stubby /usr/local/bin/stubby
+COPY --from=builder_stubby /usr/local/share/man/man1/stubby.1 /usr/local/share/man/man1/stubby.1
+COPY --from=builder_stubby /usr/local/share/doc/stubby/AUTHORS /usr/local/share/doc/stubby/AUTHORS
+COPY --from=builder_stubby /usr/local/share/doc/stubby/COPYING /usr/local/share/doc/stubby/COPYING
+COPY --from=builder_stubby /usr/local/share/doc/stubby/ChangeLog /usr/local/share/doc/stubby/ChangeLog
+COPY --from=builder_stubby /usr/local/share/doc/stubby/NEWS /usr/local/share/doc/stubby/NEWS
+COPY --from=builder_stubby /usr/local/share/doc/stubby/README.md /usr/local/share/doc/stubby/README.md
 
-RUN setcap 'cap_net_bind_service=+eip' /opt/adguardhome/AdGuardHome
+# Copy the config file for Stubby
+COPY scripts/stubby.yml /usr/local/etc/stubby/stubby.yml
 
-# 53     : TCP, UDP : DNS
-# 67     :      UDP : DHCP (server)
-# 68     :      UDP : DHCP (client)
-# 80     : TCP      : HTTP (main)
-# 443    : TCP, UDP : HTTPS, DNS-over-HTTPS (incl. HTTP/3), DNSCrypt (main)
-# 853    : TCP, UDP : DNS-over-TLS, DNS-over-QUIC
-# 3000   : TCP, UDP : HTTP(S) (alt, incl. HTTP/3)
-# 5443   : TCP, UDP : DNSCrypt (alt)
-# 6060   : TCP      : HTTP (pprof)
-EXPOSE 53/tcp 53/udp 67/udp 68/udp 80/tcp 443/tcp 443/udp 853/tcp \
-    853/udp 3000/tcp 3000/udp 5443/tcp 5443/udp 6060/tcp
+# Set up the cron jobs
+COPY crontab/root /tmp/crontab_root
+RUN cat /tmp/crontab_root >> /var/spool/cron/crontabs/root \
+    && rm -f /tmp/crontab_root
 
-WORKDIR /opt/adguardhome/work
+# Copy custom entrypoint script
+COPY scripts/entrypoint.sh /opt
 
-ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
+# Upgrade Alpine to 3.16 and install the latest version of packages
+RUN sed -i 's#3.13#3.16#g' /etc/apk/repositories \
+    && apk update \
+    && apk upgrade --available --no-cache \
+    && sync
 
-CMD [ \
-    "--no-check-update", \
-    "-c", "/opt/adguardhome/conf/AdGuardHome.yaml", \
-    "-w", "/opt/adguardhome/work" \
-]
+# Set script permissions executable
+RUN chmod +x /opt/entrypoint.sh
 
-# Copy Unbound binaries and configuration
-COPY --from=unbound /usr/local/sbin/unbound* /usr/local/sbin/
-COPY --from=unbound /usr/local/lib/libunbound* /usr/local/lib/
-COPY --from=unbound /usr/local/etc/unbound/* /usr/local/etc/unbound/
+# Run the entrypoint script
+ENTRYPOINT ["/opt/entrypoint.sh"]
 
-# Copy Stubby binaries and configuration
-COPY --from=stubby /usr/src/stubby/stubby /usr/local/bin/
-COPY --from=stubby /usr/src/stubby/stubby.yml.example /usr/local/etc/stubby/stubby.yml
-
-# Install necessary packages for user and group creation, and other utilities
-RUN apk update && \
-    apk add shadow bash nano curl wget openssl dpkg
-
-RUN mkdir -p /usr/local/etc/unbound && \
-    mkdir -p /usr/local/etc/stubby
-
-ADD scripts /temp
-
-RUN groupadd unbound && \
-    useradd -g unbound unbound && \
-    /bin/bash /temp/install.sh && \
-    rm -rf /temp/install.sh 
-
-VOLUME ["/config"]
-
-RUN echo "$(date "+%d.%m.%Y %T") Built from ${FRM} with tag ${TAG}" >> /build_date.info
+# For debugging only
+#CMD ["/bin/sh", "-c", "while true; do cat /dev/null; done"]
