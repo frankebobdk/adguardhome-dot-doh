@@ -5,7 +5,7 @@
 set -e
 
 # Run crontab service.
-##/usr/sbin/crond -L /var/log/cron.log
+/usr/sbin/crond -L /var/log/cron.log
 
 # Run Ubound
 /usr/sbin/unbound -p -v -d &
