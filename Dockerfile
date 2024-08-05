@@ -100,8 +100,9 @@ ARG TARGETARCH
 ARG TARGETOS
 ARG TARGETVARIANT
 
+# Ensure the DIST_DIR is set correctly to point to where the AdGuardHome binary is located
 COPY --chown=nobody:nogroup \
-    ./${DIST_DIR}/docker/AdGuardHome_${TARGETOS}_${TARGETARCH}_${TARGETVARIANT} \
+    ${DIST_DIR}/AdGuardHome_${TARGETOS}_${TARGETARCH}${TARGETVARIANT} \
     /opt/adguardhome/AdGuardHome
 
 RUN setcap 'cap_net_bind_service=+eip' /opt/adguardhome/AdGuardHome
