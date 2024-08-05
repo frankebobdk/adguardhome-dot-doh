@@ -8,7 +8,7 @@ set -e
 /usr/sbin/crond -L /var/log/cron.log
 
 # Run Ubound
-/usr/sbin/unbound -p -v -d &
+/usr/sbin/unbound -p -v -d -c /opt/unbound/unbound.conf &
 /usr/sbin/unbound-anchor -4 -r /var/lib/unbound/root.hints -a /var/lib/unbound/root.key
 
 #Run Cloudflare DNS
