@@ -7,7 +7,7 @@ FROM adguard/adguardhome:latest
 
 # Install necessary packages for downloading Cloudflared, Unbound, and Stubby
 RUN apk update \
-    && apk add --no-cache curl unbound stubby
+    && apk add --no-cache curl unbound
 
 # Download and install Cloudflared
 RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
