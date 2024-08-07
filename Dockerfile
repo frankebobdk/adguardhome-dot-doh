@@ -1,102 +1,44 @@
-FROM alpine AS builder_stubby
+# Use the official AdGuard Home image as the base
+FROM adguard/adguardhome:latest
 
-RUN apk add --update alpine-sdk libidn2-dev unbound-dev cmake openssl-dev libev-dev libuv-dev check-dev yaml-dev \
-        && git clone https://github.com/getdnsapi/getdns.git \
-        && cd getdns && git checkout master && git submodule update --init \
-        && mkdir build && cd build \
-        && cmake -DBUILD_STUBBY=ON .. \
-        && make && make install
+# Install necessary packages for downloading Cloudflared and Unbound
+RUN apk update \
+    && apk add --no-cache curl unbound \
+    && rm -rf /var/cache/apk/*
 
-
-FROM adguard/adguardhome as base
-
-MAINTAINER "frankebobdk"
-LABEL name="frankebobdk/adguardhome-dot-doh"
-
-
-# Raspberry Pi 32 bit = armhf
-# Raspberry Pi 64 bit = arm64
-# PC 64 bit = amd64
-# PC 32 bit = i386
-
-# Install dependencies for building
-RUN apk update && apk add --no-cache \
-    dpkg \
-    libidn2 \
-    libcrypto1.1 \
-    libssl1.1 \
-    openssl \
-    yaml \
-    unbound
-
-# Get root.hints file for Unbound
-RUN wget -O root.hints https://www.internic.net/domain/named.root \
-    && mkdir -p /var/lib/unbound/ \
-    && mv root.hints /var/lib/unbound/
-
-# Set up the Unbound conf file
-COPY scripts/unbound.conf /etc/unbound/unbound.conf
-
-# Download and install Cloudflare depend on the architecture
-RUN set -eux; \
-    ARCH="$(dpkg --print-architecture | awk -F'-' '{print $NF}')"; \
-    case "$ARCH" in \
-        aarch64|arm64) \
-            CLOUDFLARE_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64"; \
-            ;; \
-        armhf|arm) \
-            CLOUDFLARE_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm"; \
-            ;; \
-        amd64|x86_64) \
-            CLOUDFLARE_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"; \
-            ;; \
-        *) \
-            echo "Unsupported architecture: $ARCH"; \
-            exit 1; \
-            ;; \
-    esac; \
-    wget -qO /usr/local/bin/cloudflared "${CLOUDFLARE_URL}"; \
-    chmod +x /usr/local/bin/cloudflared; \
-    cloudflared --version;
-
-# Add user cloudflared and set ownership
-RUN addgroup -S cloudflared \
-    && adduser -S cloudflared -G cloudflared -s /usr/sbin/nologin -D -H \
-    && chown cloudflared:cloudflared /usr/local/bin/cloudflared
-
-# Install Stubby from previous build
-RUN mkdir -p /usr/local/var/run
-COPY --from=builder_stubby /usr/local/lib/libgetdns.so.10.2.0 /usr/local/lib/libgetdns.so
-COPY --from=builder_stubby /usr/local/bin/stubby /usr/local/bin/stubby
-COPY --from=builder_stubby /usr/local/share/man/man1/stubby.1 /usr/local/share/man/man1/stubby.1
-COPY --from=builder_stubby /usr/local/share/doc/stubby/AUTHORS /usr/local/share/doc/stubby/AUTHORS
-COPY --from=builder_stubby /usr/local/share/doc/stubby/COPYING /usr/local/share/doc/stubby/COPYING
-COPY --from=builder_stubby /usr/local/share/doc/stubby/ChangeLog /usr/local/share/doc/stubby/ChangeLog
-COPY --from=builder_stubby /usr/local/share/doc/stubby/NEWS /usr/local/share/doc/stubby/NEWS
-COPY --from=builder_stubby /usr/local/share/doc/stubby/README.md /usr/local/share/doc/stubby/README.md
-
-# Copy the config file for Stubby
-COPY scripts/stubby.yml /usr/local/etc/stubby/stubby.yml
-
-# Set up the cron jobs
-COPY crontab/root /tmp/crontab_root
-RUN cat /tmp/crontab_root >> /var/spool/cron/crontabs/root \
-    && rm -f /tmp/crontab_root
-
-# Copy custom entrypoint script
-COPY scripts/entrypoint.sh /opt
-
-# Upgrade Alpine to 3.16 and install the latest version of packages
-RUN sed -i 's#3.13#3.16#g' /etc/apk/repositories \
+# Add edge repositories and install Stubby from edge
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
+    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
     && apk update \
-    && apk upgrade --available --no-cache \
-    && sync
+    && apk add --no-cache stubby \
+    && rm -rf /var/cache/apk/* \
+    && sed -i '/edge/d' /etc/apk/repositories
 
-# Set script permissions executable
-RUN chmod +x /opt/entrypoint.sh
+# Download and install Cloudflared
+RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
+    && chmod +x /usr/local/bin/cloudflared
 
-# Run the entrypoint script
-ENTRYPOINT ["/opt/entrypoint.sh"]
+# Download the latest root.hints file from Internic
+RUN curl -o /etc/unbound/root.hints https://www.internic.net/domain/named.cache
 
-# For debugging only
-#CMD ["/bin/sh", "-c", "while true; do cat /dev/null; done"]
+# Copy Cloudflared configuration file
+COPY cloudflared/cloudflared.yml /etc/cloudflared/config.yml
+
+# Optional: Add any custom configuration or scripts here
+# Example: Copy custom configuration files for Unbound and Stubby
+COPY unbound/unbound.conf /etc/unbound/unbound.conf
+COPY stubby/stubby.yml /etc/stubby/stubby.yml
+
+# Expose necessary ports
+EXPOSE 53/tcp 53/udp
+EXPOSE 67/udp 68/tcp 68/udp
+EXPOSE 80/tcp 443/tcp 443/udp 3000/tcp
+EXPOSE 853/tcp
+EXPOSE 784/udp 853/udp 8853/udp
+EXPOSE 5443/tcp 5443/udp
+
+# Set the entrypoint to a script that starts AdGuard Home, Cloudflared, Unbound, and Stubby
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
