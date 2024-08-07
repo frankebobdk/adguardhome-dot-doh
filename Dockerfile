@@ -2,10 +2,10 @@
 FROM adguard/adguardhome:latest
 
 # Install necessary packages for downloading Cloudflared
-RUN apt-get update && apt-get install -y wget
+RUN apk add --no-cache curl
 
 # Download and install Cloudflared
-RUN wget -O /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
     && chmod +x /usr/local/bin/cloudflared
 
 # Optional: Add any custom configuration or scripts here
