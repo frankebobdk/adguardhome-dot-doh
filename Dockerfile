@@ -1,4 +1,3 @@
-# Stage 1: Build
 FROM golang:alpine AS build
 
 RUN apk add --update git make build-base npm && \
@@ -8,7 +7,6 @@ WORKDIR /src/AdGuardHome
 COPY . /src/AdGuardHome
 RUN make
 
-# Stage 2: Final image
 FROM alpine:latest
 LABEL maintainer="AdGuard Team <devteam@adguard.com>"
 
@@ -22,6 +20,5 @@ EXPOSE 53/tcp 53/udp 67/tcp 67/udp 68/tcp 68/udp 80/tcp 443/tcp 853/tcp 853/udp 
 
 VOLUME ["/opt/adguardhome/conf", "/opt/adguardhome/work"]
 
-# Ensure that the container runs with a shell, allowing console access
 ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
 CMD ["-h", "0.0.0.0", "-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work"]
