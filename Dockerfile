@@ -2,8 +2,8 @@
 FROM adguard/adguardhome:latest
 
 # Enable the edge branch for Alpine
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
-    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+#RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
+#    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 
 # Install necessary packages for downloading Cloudflared, Unbound, and Stubby
 RUN apk update \
