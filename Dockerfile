@@ -1,13 +1,18 @@
 # Use the official AdGuard Home image as the base
 FROM adguard/adguardhome:latest
 
-# Enable the edge branch for Alpine
-#RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
-#    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-
-# Install necessary packages for downloading Cloudflared, Unbound, and Stubby
+# Install necessary packages for downloading Cloudflared and Unbound
 RUN apk update \
-    && apk add --no-cache curl unbound
+    && apk add --no-cache curl unbound \
+    && rm -rf /var/cache/apk/*
+
+# Add edge repositories and install Stubby from edge
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
+    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && apk update \
+    && apk add --no-cache stubby \
+    && rm -rf /var/cache/apk/* \
+    && sed -i '/edge/d' /etc/apk/repositories
 
 # Download and install Cloudflared
 RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
