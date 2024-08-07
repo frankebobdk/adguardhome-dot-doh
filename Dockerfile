@@ -24,8 +24,9 @@ LABEL maintainer="AdGuard Team <devteam@adguard.com>"
 
 # Install dependencies and update CA certs
 RUN apk update && apk add --no-cache \
-    ca-certificates bash dpkg libidn2 libcrypto1.1 libssl1.1 openssl yaml unbound wget && \
-    rm -rf /var/cache/apk/* && mkdir -p /opt/adguardhome && \
+    ca-certificates bash libidn2 libcrypto3 openssl yaml unbound wget && \
+    rm -rf /var/cache/apk/* && \
+    mkdir -p /opt/adguardhome && \
     mkdir -p /usr/local/var/run
 
 # Copy AdGuardHome binary from build stage
