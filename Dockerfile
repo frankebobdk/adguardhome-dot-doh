@@ -3,7 +3,7 @@ FROM adguard/adguardhome:latest
 
 # Install necessary packages for downloading Cloudflared and Unbound
 RUN apk update \
-    && apk add --no-cache curl unbound \
+    && apk add --no-cache curl bash unbound \
     && rm -rf /var/cache/apk/*
 
 # Add edge repositories and install Stubby from edge
