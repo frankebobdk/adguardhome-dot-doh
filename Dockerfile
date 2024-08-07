@@ -1,7 +1,16 @@
 # Use the official AdGuard Home image as the base
 FROM adguard/adguardhome:latest
 
+# Install necessary packages for downloading Cloudflared
+RUN apt-get update && apt-get install -y wget
+
+# Download and install Cloudflared
+RUN wget -O /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+    && chmod +x /usr/local/bin/cloudflared
+
 # Optional: Add any custom configuration or scripts here
+# Example: Copy custom configuration files
+# COPY my-custom-config.yaml /opt/adguardhome/conf/
 
 # Expose necessary ports
 EXPOSE 53/tcp 53/udp
@@ -11,6 +20,8 @@ EXPOSE 853/tcp
 EXPOSE 784/udp 853/udp 8853/udp
 EXPOSE 5443/tcp 5443/udp
 
-# Set the entrypoint to the default entrypoint of AdGuard Home
-ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
-CMD ["-c", "/opt/adguardhome/conf/AdGuardHome.yaml"]
+# Set the entrypoint to a script that starts both AdGuard Home and Cloudflared
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
