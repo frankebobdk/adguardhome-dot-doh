@@ -1,24 +1,16 @@
-FROM golang:alpine AS build
+# Use the official AdGuard Home image as the base
+FROM adguard/adguardhome:latest
 
-RUN apk add --update git make build-base npm && \
-    rm -rf /var/cache/apk/*
+# Optional: Add any custom configuration or scripts here
 
-WORKDIR /src/AdGuardHome
-COPY . /src/AdGuardHome
-RUN make
+# Expose necessary ports
+EXPOSE 53/tcp 53/udp
+EXPOSE 67/udp 68/tcp 68/udp
+EXPOSE 80/tcp 443/tcp 443/udp 3000/tcp
+EXPOSE 853/tcp
+EXPOSE 784/udp 853/udp 8853/udp
+EXPOSE 5443/tcp 5443/udp
 
-FROM alpine:latest
-LABEL maintainer="AdGuard Team <devteam@adguard.com>"
-
-# Update CA certs
-RUN apk --no-cache --update add ca-certificates bash && \
-    rm -rf /var/cache/apk/* && mkdir -p /opt/adguardhome
-
-COPY --from=build /src/AdGuardHome/AdGuardHome /opt/adguardhome/AdGuardHome
-
-EXPOSE 53/tcp 53/udp 67/tcp 67/udp 68/tcp 68/udp 80/tcp 443/tcp 853/tcp 853/udp 3000/tcp
-
-VOLUME ["/opt/adguardhome/conf", "/opt/adguardhome/work"]
-
+# Set the entrypoint to the default entrypoint of AdGuard Home
 ENTRYPOINT ["/opt/adguardhome/AdGuardHome"]
-CMD ["-h", "0.0.0.0", "-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work"]
+CMD ["-c", "/opt/adguardhome/conf/AdGuardHome.yaml"]
