@@ -81,7 +81,7 @@ COPY scripts/unbound.conf /etc/unbound/unbound.conf
 COPY scripts/entrypoint.sh /opt/
 
 # Copy the config file for cloudflared
-COPY scripts/cloudflared-config.yml /opt/cloudflared/config.yml
+COPY scripts/cloudflared.yml /opt/cloudflared/config.yml
 
 # Set script permissions executable
 RUN chmod +x /opt/entrypoint.sh
