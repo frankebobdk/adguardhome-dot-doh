@@ -22,7 +22,7 @@ RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/c
 RUN curl -o /etc/unbound/root.hints https://www.internic.net/domain/named.cache
 
 # Copy Cloudflared configuration file
-COPY cloudflared/cloudflared.yml /etc/cloudflared/config.yml
+COPY cloudflared/config.yml /etc/cloudflared/config.yml
 
 # Optional: Add any custom configuration or scripts here
 # Example: Copy custom configuration files for Unbound and Stubby
