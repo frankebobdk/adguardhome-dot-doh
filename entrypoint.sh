@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Start Unbound in the background - fjernet "-d"
-unbound -c /etc/unbound/unbound.conf &
+unbound -v -c /etc/unbound/unbound.conf &
 
 # Start Stubby in the background
 stubby -C /etc/stubby/stubby.yml &
