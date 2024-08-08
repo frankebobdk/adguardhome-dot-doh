@@ -33,8 +33,11 @@ COPY stubby/stubby.yml /etc/stubby/stubby.yml
 EXPOSE 53/tcp 53/udp
 EXPOSE 67/udp 68/tcp 68/udp
 EXPOSE 80/tcp 443/tcp 443/udp 3000/tcp
-EXPOSE 853/tcp
-EXPOSE 784/udp 853/udp 8853/udp
+EXPOSE 853/tcp 853/udp
+EXPOSE 784/udp 8853/udp
+EXPOSE 5053/tcp 5053/udp
+EXPOSE 5153/tcp 5153/udp
+EXPOSE 5253/tcp 5253/udp
 EXPOSE 5443/tcp 5443/udp
 
 # Set the entrypoint to a script that starts AdGuard Home, Cloudflared, Unbound, and Stubby
