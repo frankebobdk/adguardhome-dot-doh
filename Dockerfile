@@ -42,14 +42,14 @@ RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/c
     && chmod +x /usr/local/bin/cloudflared
 
 # Download the latest root.hints file from Internic
-RUN curl -o /etc/unbound/root.hints https://www.internic.net/domain/named.cache
+RUN curl -o /opt/unbound/etc/unbound/root.hints https://www.internic.net/domain/named.cache
 
 # Copy Cloudflared configuration file
 COPY cloudflared/config.yml /etc/cloudflared/config.yml
 
 # Optional: Add any custom configuration or scripts here
 # Example: Copy custom configuration files for Unbound and Stubby
-COPY unbound/unbound.conf /etc/unbound/unbound.conf
+COPY unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf
 COPY stubby/stubby.yml /etc/stubby/stubby.yml
 
 # Expose necessary ports
