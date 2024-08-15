@@ -1,32 +1,55 @@
 # Use the official AdGuard Home image as the base
 FROM adguard/adguardhome:latest
 
-# Install necessary packages for downloading Cloudflared and Unbound
+# Install necessary packages for downloading Cloudflared, Unbound dependencies, and build tools
 RUN apk update \
-    && apk add --no-cache curl bash unbound \
+    && apk add --no-cache curl bash build-base libevent-dev expat-dev nghttp2-dev ca-certificates openssl-dev protobuf-c-dev \
     && rm -rf /var/cache/apk/*
 
-# Add edge repositories and install Stubby from edge
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
-    && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
-    && apk update \
-    && apk add --no-cache stubby \
-    && rm -rf /var/cache/apk/* \
-    && sed -i '/edge/d' /etc/apk/repositories
+# Set environment variables for Unbound installation
+ENV UNBOUND_VERSION=1.21.0 \
+    UNBOUND_SHA256=e7dca7d6b0f81bdfa6fa64ebf1053b5a999a5ae9278a87ef182425067ea14521 \
+    UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.21.0.tar.gz
+
+WORKDIR /tmp/src
+
+# Download and install Unbound
+RUN curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz \
+    && echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - \
+    && tar xzf unbound.tar.gz \
+    && rm -f unbound.tar.gz \
+    && cd unbound-$UNBOUND_VERSION \
+    && ./configure \
+        --disable-dependency-tracking \
+        --prefix=/opt/unbound \
+        --with-pthreads \
+        --with-username=_unbound \
+        --with-libevent \
+        --with-libnghttp2 \
+        --with-ssl \
+        --enable-dnstap \
+        --enable-tfo-server \
+        --enable-tfo-client \
+        --enable-event-api \
+        --enable-subnet \
+    && make install \
+    && mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example \
+    && apk del build-base \
+    && rm -rf /tmp/* /var/tmp/* /var/cache/apk/*
 
 # Download and install Cloudflared
 RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared \
     && chmod +x /usr/local/bin/cloudflared
 
 # Download the latest root.hints file from Internic
-RUN curl -o /etc/unbound/root.hints https://www.internic.net/domain/named.cache
+RUN curl -o /opt/unbound/etc/unbound/root.hints https://www.internic.net/domain/named.cache
 
 # Copy Cloudflared configuration file
 COPY cloudflared/config.yml /etc/cloudflared/config.yml
 
 # Optional: Add any custom configuration or scripts here
 # Example: Copy custom configuration files for Unbound and Stubby
-COPY unbound/unbound.conf /etc/unbound/unbound.conf
+COPY unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf
 COPY stubby/stubby.yml /etc/stubby/stubby.yml
 
 # Expose necessary ports
