@@ -3,7 +3,7 @@ FROM adguard/adguardhome:latest
 
 # Install necessary packages for downloading Cloudflared, Unbound dependencies, and build tools
 RUN apk update \
-    && apk add --no-cache curl bash build-base libevent-dev expat-dev nghttp2-dev ca-certificates \
+    && apk add --no-cache curl bash build-base libevent-dev expat-dev nghttp2-dev ca-certificates openssl-dev \
     && rm -rf /var/cache/apk/*
 
 # Set environment variables for Unbound installation
@@ -26,6 +26,7 @@ RUN curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz \
         --with-username=_unbound \
         --with-libevent \
         --with-libnghttp2 \
+        --with-ssl \
         --enable-dnstap \
         --enable-tfo-server \
         --enable-tfo-client \
