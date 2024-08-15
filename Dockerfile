@@ -3,14 +3,14 @@ FROM adguard/adguardhome:latest
 
 # Install necessary packages for downloading Cloudflared and Unbound
 RUN apk update \
-    && apk add --no-cache curl bash unbound \
+    && apk add --no-cache curl bash \
     && rm -rf /var/cache/apk/*
 
 # Add edge repositories and install Stubby from edge
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
     && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
     && apk update \
-    && apk add --no-cache stubby \
+    && apk add --no-cache stubby unbound \
     && rm -rf /var/cache/apk/* \
     && sed -i '/edge/d' /etc/apk/repositories
 
