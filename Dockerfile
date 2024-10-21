@@ -7,9 +7,9 @@ RUN apk update \
     && rm -rf /var/cache/apk/*
 
 # Set environment variables for Unbound installation
-ENV UNBOUND_VERSION=1.21.0 \
+ENV UNBOUND_VERSION=1.22.0 \
     UNBOUND_SHA256=e7dca7d6b0f81bdfa6fa64ebf1053b5a999a5ae9278a87ef182425067ea14521 \
-    UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.21.0.tar.gz
+    UNBOUND_DOWNLOAD_URL=https://nlnetlabs.nl/downloads/unbound/unbound-1.22.0.tar.gz
 
 WORKDIR /tmp/src
 
