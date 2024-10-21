@@ -34,7 +34,6 @@ EXPOSE 53/tcp 53/udp
 EXPOSE 67/udp 68/tcp 68/udp
 EXPOSE 80/tcp 443/tcp 443/udp 3000/tcp
 EXPOSE 853/tcp 853/udp
-EXPOSE 2853/udp
 EXPOSE 784/udp 8853/udp
 EXPOSE 5053/tcp 5053/udp
 EXPOSE 5153/tcp 5153/udp
